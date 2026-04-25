@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ── Shared singletons ─────────────────────────────────────────────────────────
+# Shared singletons
 dedup_store = DedupStore()
 stats = StatsCollector()
 
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Pub-Sub Log Aggregator", lifespan=lifespan)
 
 
-# ── POST /publish ─────────────────────────────────────────────────────────────
+# POST /publish
 @app.post("/publish", status_code=202)
 async def publish(request: BatchPublishRequest):
     """
@@ -56,7 +56,7 @@ async def publish(request: BatchPublishRequest):
     return {"queued": len(request.events)}
 
 
-# ── GET /events ───────────────────────────────────────────────────────────────
+# GET /events
 @app.get("/events")
 async def get_events(topic: str = Query(default=None)):
     """
@@ -72,13 +72,13 @@ async def get_events(topic: str = Query(default=None)):
     return {"events": processed_events}
 
 
-# ── GET /stats ────────────────────────────────────────────────────────────────
+# GET /stats
 @app.get("/stats")
 async def get_stats():
     return stats.snapshot()
 
 
-# ── GET /health ───────────────────────────────────────────────────────────────
+# GET /health
 @app.get("/health")
 async def health():
     return {"status": "ok"}

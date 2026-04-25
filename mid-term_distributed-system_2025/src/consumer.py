@@ -8,10 +8,10 @@ from .stats import StatsCollector
 
 logger = logging.getLogger(__name__)
 
-# ── Shared in-memory queue ────────────────────────────────────────────────────
+# Shared in-memory queue
 event_queue: asyncio.Queue[Event] = asyncio.Queue()
 
-# ── Processed events store (in-memory, per topic) ────────────────────────────
+# Processed events store (in-memory, per topic)
 # { "payments": [Event, ...], "auth": [Event, ...] }
 processed_events: dict[str, list[Event]] = {}
 
