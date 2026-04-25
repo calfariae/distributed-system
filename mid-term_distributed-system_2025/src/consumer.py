@@ -5,15 +5,9 @@ from datetime import datetime, timezone
 from .dedup_store import DedupStore
 from .models import Event
 from .stats import StatsCollector
+from .queue_manager import get_queue, processed_events
 
 logger = logging.getLogger(__name__)
-
-# Shared in-memory queue
-event_queue: asyncio.Queue[Event] = asyncio.Queue()
-
-# Processed events store (in-memory, per topic)
-# { "payments": [Event, ...], "auth": [Event, ...] }
-processed_events: dict[str, list[Event]] = {}
 
 
 async def consume(dedup_store: DedupStore, stats: StatsCollector) -> None:
@@ -22,9 +16,10 @@ async def consume(dedup_store: DedupStore, stats: StatsCollector) -> None:
     Pulls events off the queue one at a time and applies deduplication.
     """
     logger.info("Consumer worker started.")
+    queue = get_queue()
 
     while True:
-        event: Event = await event_queue.get()
+        event: Event = await queue.get()
 
         try:
             if dedup_store.is_duplicate(event.topic, event.event_id):
@@ -55,4 +50,4 @@ async def consume(dedup_store: DedupStore, stats: StatsCollector) -> None:
                 "Unexpected error processing event_id=%s", event.event_id
             )
         finally:
-            event_queue.task_done()
+            queue.task_done()
