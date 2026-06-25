@@ -1,0 +1,2 @@
+CONTAINER ID   NAME                                       CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O         PIDS
+0762d396c701   final_distributed-system_2025-aggregator   0.17%     63.34MiB / 4.157GiB   1.49%     26.7MB / 30.1MB   49.2kB / 45.1kB   5

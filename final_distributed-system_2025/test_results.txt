@@ -1,0 +1,56 @@
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.11.15, pytest-7.4.3, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /app/tests
+configfile: pytest.ini
+plugins: asyncio-0.21.1, anyio-3.7.1, cov-4.1.0
+asyncio: mode=Mode.AUTO
+[1mcollecting ... [0m[1mcollecting 0 items                                                             [0m[1mcollected 20 items                                                             [0m
+
+tests/test_api.py::test_health_check [32mPASSED[0m[33m                              [  5%][0m
+tests/test_api.py::test_stats_endpoint [32mPASSED[0m[33m                            [ 10%][0m
+tests/test_api.py::test_get_events_structure [32mPASSED[0m[33m                      [ 15%][0m
+tests/test_api.py::test_get_events_fields [32mPASSED[0m[33m                         [ 20%][0m
+tests/test_api.py::test_get_events_topic_filter [32mPASSED[0m[33m                   [ 25%][0m
+tests/test_api.py::test_get_events_empty [32mPASSED[0m[33m                          [ 30%][0m
+tests/test_api.py::test_get_events_pagination_params [32mPASSED[0m[33m              [ 35%][0m
+tests/test_api.py::test_get_events_consistent_with_stats [32mPASSED[0m[33m          [ 40%][0m
+tests/test_dedup.py::test_dedup_prevents_duplicates [32mPASSED[0m[33m               [ 45%][0m
+tests/test_dedup.py::test_stats_update_consistency [32mPASSED[0m[33m                [ 50%][0m
+tests/test_integration.py::test_end_to_end_event_flow [32mPASSED[0m[33m             [ 55%][0m
+tests/test_integration.py::test_duplicate_with_retry [32mPASSED[0m[33m              [ 60%][0m
+tests/test_integration.py::test_persistence_after_restart [32mPASSED[0m[33m         [ 65%][0m
+tests/test_integration.py::test_consumer_processing [32mPASSED[0m[33m               [ 70%][0m
+tests/test_integration.py::test_batch_processing_atomicity [32mPASSED[0m[33m        [ 75%][0m
+tests/test_payload.py::test_invalid_and_empty_payload [32mPASSED[0m[33m             [ 80%][0m
+tests/test_stress.py::test_batch_stress_timing [32mPASSED[0m[33m                    [ 85%][0m
+tests/test_stress.py::test_mixed_batch_stress_timing [32mPASSED[0m[33m              [ 90%][0m
+tests/test_transactions.py::test_atomic_batch_transaction [32mPASSED[0m[33m         [ 95%][0m
+tests/test_transactions.py::test_transaction_rollback_on_error [32mPASSED[0m[33m    [100%][0m
+
+[33m=============================== warnings summary ===============================[0m
+app/models.py:8
+  /app/app/models.py:8: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas.py:13
+  /app/app/schemas.py:13: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('event_id', pre=True, always=True)
+
+app/schemas.py:19
+  /app/app/schemas.py:19: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('timestamp', pre=True, always=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 10 durations =============================
+0.36s call     test_stress.py::test_batch_stress_timing
+0.30s call     test_stress.py::test_mixed_batch_stress_timing
+0.10s setup    test_dedup.py::test_dedup_prevents_duplicates
+0.07s call     test_api.py::test_stats_endpoint
+0.05s call     test_dedup.py::test_stats_update_consistency
+0.04s call     test_api.py::test_health_check
+0.03s call     test_integration.py::test_batch_processing_atomicity
+0.02s call     test_integration.py::test_persistence_after_restart
+0.02s call     test_transactions.py::test_transaction_rollback_on_error
+0.02s setup    test_integration.py::test_persistence_after_restart
+[33m======================== [32m20 passed[0m, [33m[1m3 warnings[0m[33m in 1.94s[0m[33m ========================[0m

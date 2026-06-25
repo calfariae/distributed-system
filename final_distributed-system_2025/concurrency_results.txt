@@ -1,0 +1,43 @@
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.11.15, pytest-7.4.3, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /app/tests
+configfile: pytest.ini
+plugins: asyncio-0.21.1, anyio-3.7.1, cov-4.1.0
+asyncio: mode=Mode.AUTO
+[1mcollecting ... [0m[1mcollected 7 items                                                              [0m
+
+tests/test_transactions.py::test_atomic_batch_transaction [32mPASSED[0m
+tests/test_transactions.py::test_transaction_rollback_on_error [32mPASSED[0m
+tests/test_integration.py::test_end_to_end_event_flow [32mPASSED[0m
+tests/test_integration.py::test_duplicate_with_retry [32mPASSED[0m
+tests/test_integration.py::test_persistence_after_restart [32mPASSED[0m
+tests/test_integration.py::test_consumer_processing [32mPASSED[0m
+tests/test_integration.py::test_batch_processing_atomicity [32mPASSED[0m
+
+[33m=============================== warnings summary ===============================[0m
+app/models.py:8
+  /app/app/models.py:8: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas.py:13
+  /app/app/schemas.py:13: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('event_id', pre=True, always=True)
+
+app/schemas.py:19
+  /app/app/schemas.py:19: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('timestamp', pre=True, always=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================= slowest 10 durations =============================
+0.04s call     test_integration.py::test_persistence_after_restart
+0.03s setup    test_integration.py::test_duplicate_with_retry
+0.03s call     test_integration.py::test_consumer_processing
+0.03s setup    test_integration.py::test_consumer_processing
+0.02s setup    test_transactions.py::test_atomic_batch_transaction
+0.02s call     test_integration.py::test_duplicate_with_retry
+0.02s call     test_transactions.py::test_atomic_batch_transaction
+0.02s call     test_integration.py::test_batch_processing_atomicity
+0.02s setup    test_integration.py::test_persistence_after_restart
+0.02s setup    test_integration.py::test_batch_processing_atomicity
+[33m======================== [32m7 passed[0m, [33m[1m3 warnings[0m[33m in 0.45s[0m[33m =========================[0m

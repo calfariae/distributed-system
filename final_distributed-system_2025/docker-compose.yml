@@ -1,0 +1,99 @@
+services:
+  storage:
+    image: postgres:16-alpine
+    container_name: final_distributed-system_2025-storage
+    environment:
+      POSTGRES_DB: db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"  # Optional for debugging
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c wal_level=replica
+      -c max_wal_senders=10
+      -c hot_standby=on
+    networks:
+      - default
+
+  broker:
+    image: redis:7-alpine
+    container_name: final_distributed-system_2025-broker
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - broker_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  aggregator:
+    build: ./aggregator
+    image: final_distributed-system_2025-aggregator:latest
+    container_name: final_distributed-system_2025-aggregator
+    depends_on:
+      storage:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:pass@storage:5432/db
+      - REDIS_URL=redis://broker:6379
+      - LOG_LEVEL=INFO
+      - WORKERS=4
+    ports:
+      - "8080:8080"
+    volumes:
+      - aggregator_data:/var/lib/aggregator
+      - ./aggregator/tests:/app/tests
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - default
+
+  publisher:
+    build: ./publisher
+    image: final_distributed-system_2025-publisher:latest
+    container_name: final_distributed-system_2025-publisher
+    depends_on:
+      aggregator:
+        condition: service_healthy
+    environment:
+      - TARGET_URL=http://aggregator:8080
+      - DUPLICATE_RATE=0.3
+      - EVENTS_PER_SECOND=100
+      - DURATION_SECONDS=300
+    restart: on-failure
+    networks:
+      - default
+
+volumes:
+  pg_data:
+    name: final_distributed-system_2025_pg_data
+  broker_data:
+    name: final_distributed-system_2025_broker_data
+  aggregator_data:
+    name: final_distributed-system_2025_aggregator_data
+
+networks:
+  default:
+    name: final_distributed-system_2025_network
+    driver: bridge

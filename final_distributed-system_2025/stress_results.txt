@@ -1,0 +1,31 @@
+[1m============================= test session starts ==============================[0m
+platform linux -- Python 3.11.15, pytest-7.4.3, pluggy-1.6.0 -- /usr/local/bin/python
+cachedir: .pytest_cache
+rootdir: /app/tests
+configfile: pytest.ini
+plugins: asyncio-0.21.1, anyio-3.7.1, cov-4.1.0
+asyncio: mode=Mode.AUTO
+[1mcollecting ... [0m[1mcollected 2 items                                                              [0m
+
+tests/test_stress.py::test_batch_stress_timing 
+⏱ 100 events processed in 0.433s (231 events/sec)
+[32mPASSED[0m
+tests/test_stress.py::test_mixed_batch_stress_timing 
+⏱ 100 mixed events processed in 0.358s (279 events/sec)
+[32mPASSED[0m
+
+[33m=============================== warnings summary ===============================[0m
+app/models.py:8
+  /app/app/models.py:8: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app/schemas.py:13
+  /app/app/schemas.py:13: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('event_id', pre=True, always=True)
+
+app/schemas.py:19
+  /app/app/schemas.py:19: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.5/migration/
+    @validator('timestamp', pre=True, always=True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+[33m======================== [32m2 passed[0m, [33m[1m3 warnings[0m[33m in 0.93s[0m[33m =========================[0m
