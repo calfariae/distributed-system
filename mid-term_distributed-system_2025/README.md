@@ -1,114 +1,118 @@
 # Pub-Sub Log Aggregator
 
-A lightweight, local Pub-Sub log aggregation service built with FastAPI and asyncio. Accepts log events from publishers, deduplicates them using a persistent SQLite store, and serves the cleaned event stream via a REST API.
+Layanan agregasi log berbasis arsitektur *publish-subscribe* yang dibangun menggunakan FastAPI dan asyncio. Layanan ini menerima *event* log dari *publisher*, melakukan deduplikasi menggunakan penyimpanan SQLite yang persisten, serta menyajikan kembali *event* unik melalui REST API.
 
-Built as part of UTS Sistem Terdistribusi dan Parallel 2025.
+Dikembangkan sebagai bagian dari **UTS Mata Kuliah Sistem Terdistribusi dan Parallel 2025**.
 
 ---
 
-## Architecture
+## Arsitektur Sistem
 
 ```
 POST /publish
       │
       ▼
-  [ asyncio.Queue ]  ← in-memory
+  [ asyncio.Queue ]  ← antrian in-memory
       │
       ▼
-  Consumer Worker (background loop)
+  Consumer Worker (loop background)
       │
-      ├── duplicate? ── log [DUPLICATE DROPPED] & discard
+      ├── duplikat? ──→ catat [DUPLICATE DROPPED] & buang
       │
-      └── unique? ───── SQLite dedup store (persistent)
-                          + in-memory processed events list
-                                │
-                          GET /events
-                          GET /stats
+      └── unik? ──────→ SQLite dedup store (persisten)
+                         + daftar event in-memory (per topik)
+                               │
+                         GET /events
+                         GET /stats
 ```
 
-The publisher and aggregator are separated into two Docker Compose services that communicate over an internal network with no external connectivity.
+*Publisher* dan *aggregator* dijalankan sebagai dua layanan terpisah di dalam Docker Compose dan berkomunikasi melalui jaringan internal tanpa koneksi eksternal.
 
 ---
 
-## Project Structure
+## Struktur Proyek
 
 ```
 .
 ├── src/
 │   ├── __init__.py
-│   ├── main.py            # FastAPI app, lifespan, endpoints
-│   ├── models.py          # Pydantic Event and BatchPublishRequest models
-│   ├── consumer.py        # Background consumer worker
-│   ├── queue_manager.py   # asyncio.Queue (lazy, loop-safe)
-│   ├── dedup_store.py     # SQLite-backed deduplication store
-│   ├── stats.py           # In-memory stats collector
-│   └── dependencies.py    # Shared dedup_store and stats singletons
+│   ├── main.py            # Aplikasi FastAPI, lifespan, dan endpoint
+│   ├── models.py          # Model Pydantic: Event dan BatchPublishRequest
+│   ├── consumer.py        # Worker consumer (loop background)
+│   ├── queue_manager.py   # asyncio.Queue (lazy, aman antar event loop)
+│   ├── dedup_store.py     # Dedup store berbasis SQLite
+│   ├── stats.py           # Pengumpul statistik in-memory
+│   └── dependencies.py    # Singleton bersama: dedup_store dan stats
 ├── tests/
-│   └── test_aggregator.py # 10 unit tests (pytest + httpx)
-├── data/                  # SQLite dedup DB written here (local dev)
-├── publisher.py           # Standalone publisher for Docker Compose
+│   ├── conftest.py
+│   └── test_aggregator.py # 10 unit test (pytest + httpx)
+├── data/                  # Lokasi file SQLite saat pengembangan lokal
+├── publisher.py           # Skrip publisher untuk Docker Compose
 ├── requirements.txt
-├── Dockerfile             # Aggregator image
-├── Dockerfile.publisher   # Publisher image
-├── docker-compose.yml     # Bonus: two-service Compose setup
+├── Dockerfile             # Image aggregator
+├── Dockerfile.publisher   # Image publisher
+├── docker-compose.yml     # Konfigurasi dua layanan (bonus)
 ├── pytest.ini
-├── conftest.py
 └── README.md
 ```
 
 ---
 
-## Requirements
+## Prasyarat
 
-- Docker 20.10+
-- Docker Compose v2 (for the Compose bonus)
-- Python 3.11+ (for local runs only)
+- Docker 20.10 atau lebih baru
+- Docker Compose v2 (untuk menjalankan konfigurasi bonus)
+- Python 3.11+ (hanya untuk pengembangan lokal)
 
 ---
 
-## Running with Docker (Single Container)
+## Cara Menjalankan
 
-**Build:**
+### Menggunakan Docker (Satu Container)
+
+**Build image:**
 ```bash
 docker build -t uts-aggregator .
 ```
 
-**Run:**
+**Jalankan container:**
 ```bash
 docker run -p 8080:8080 -v $(pwd)/data:/app/data uts-aggregator
 ```
 
-The `-v` flag mounts a local `data/` folder so the SQLite dedup store persists across container restarts.
+Flag `-v` digunakan untuk me-mount direktori `data/` lokal ke dalam container, sehingga dedup store SQLite tetap persisten meskipun container di-restart.
 
 ---
 
-## Running with Docker Compose (Bonus)
+### Menggunakan Docker Compose (Bonus)
 
-Starts the aggregator and a publisher service that automatically sends 6,000 events (5,000 unique + 1,000 duplicates):
+Menjalankan dua layanan sekaligus: *aggregator* dan *publisher*. Publisher secara otomatis mengirim 6.000 *event* (5.000 unik + 1.000 duplikat) setelah *aggregator* siap.
 
+**Jalankan:**
 ```bash
 docker compose up --build
 ```
 
-The publisher waits for the aggregator to pass its healthcheck before sending. After all events are sent, the publisher exits and the aggregator keeps running. Check results with:
+Publisher akan menunggu hingga *aggregator* lolos *healthcheck* sebelum mulai mengirim *event*. Setelah selesai, publisher berhenti otomatis dan *aggregator* tetap berjalan.
 
+**Periksa hasil:**
 ```bash
 curl http://localhost:8080/stats
 ```
 
-To stop:
+**Hentikan layanan:**
 ```bash
 docker compose down
 ```
 
-To stop and wipe the dedup volume (full reset):
+**Hentikan dan hapus volume (reset penuh):**
 ```bash
 docker compose down -v
 ```
 
 ---
 
-## Running Locally (Development)
+### Pengembangan Lokal (Tanpa Docker)
 
 ```bash
 python -m venv venv
@@ -116,26 +120,28 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-In `src/dedup_store.py`, temporarily set:
+Ubah sementara `DB_PATH` di `src/dedup_store.py` menjadi:
 ```python
 DB_PATH = Path("data/dedup.db")
 ```
 
-Then run:
+Buat direktori data dan jalankan server:
 ```bash
+mkdir -p data
 python -m uvicorn src.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-> Remember to revert `DB_PATH` back to `Path("/app/data/dedup.db")` before building the Docker image.
+> **Perhatian:** Kembalikan `DB_PATH` ke `Path("/app/data/dedup.db")` sebelum melakukan build Docker image.
 
 ---
 
-## API Endpoints
+## Dokumentasi API
 
 ### `POST /publish`
-Accepts a single event or a batch.
 
-**Request body:**
+Menerima satu *event* atau sekumpulan *event* dalam satu permintaan (*batch*).
+
+**Contoh request body:**
 ```json
 {
   "events": [
@@ -157,20 +163,23 @@ Accepts a single event or a batch.
 
 ---
 
-### `GET /events?topic=<name>`
-Returns processed unique events. Filter by topic using the query parameter.
+### `GET /events?topic=<nama_topik>`
+
+Mengembalikan daftar *event* unik yang telah diproses. Parameter `topic` bersifat opsional; jika tidak disertakan, seluruh *event* dari semua topik dikembalikan.
 
 ```bash
 curl http://localhost:8080/events?topic=payments
 ```
 
-Returns `404` if the topic has not been seen yet.
+Mengembalikan `404 Not Found` apabila topik belum pernah diterima.
 
 ---
 
 ### `GET /stats`
-Returns aggregator counters and uptime.
 
+Mengembalikan statistik agregator secara keseluruhan.
+
+**Contoh response:**
 ```json
 {
   "received": 6000,
@@ -184,7 +193,8 @@ Returns aggregator counters and uptime.
 ---
 
 ### `GET /health`
-Liveness check used by Docker healthcheck.
+
+*Liveness check* yang digunakan oleh Docker *healthcheck*.
 
 ```json
 { "status": "ok" }
@@ -192,56 +202,63 @@ Liveness check used by Docker healthcheck.
 
 ---
 
-## Running Tests
+## Skema Event
+
+| Field | Tipe | Keterangan |
+|---|---|---|
+| `event_id` | `string` | Pengenal unik untuk setiap *event*. Tidak boleh kosong. |
+| `topic` | `string` | Kategori atau saluran *event*. Tidak boleh kosong. |
+| `timestamp` | `string` | Waktu kejadian dalam format ISO 8601 (contoh: `2025-01-01T00:00:00Z`). |
+| `source` | `string` | Nama layanan atau *publisher* asal. Tidak boleh kosong. |
+| `payload` | `object` | Objek JSON arbitrer yang memuat data *event*. |
+
+Kunci deduplikasi adalah kombinasi dari `(topic, event_id)`.
+
+---
+
+## Menjalankan Unit Test
 
 ```bash
 pytest tests/ -v
 ```
 
-Tests cover:
-- Duplicate detection (same `event_id` only processed once)
-- Unique events all processed correctly
-- Schema validation (missing fields, empty strings)
-- `GET /events` topic filtering
-- `GET /stats` consistency (`received = unique + dropped`)
-- `GET /events` returns 404 for unknown topics
-- `DedupStore.mark_processed` idempotency
-- Dedup store persistence across simulated restarts
-- Stress test: 5,000 events with 20% duplicates under 15 seconds
+Cakupan pengujian meliputi:
 
----
-
-## Event Schema
-
-| Field | Type | Description |
+| No | Nama Test | Yang Diverifikasi |
 |---|---|---|
-| `event_id` | `string` | Unique identifier for the event. Must be non-empty. |
-| `topic` | `string` | Category/channel for the event. Must be non-empty. |
-| `timestamp` | `string` | ISO 8601 datetime (e.g. `2025-01-01T00:00:00Z`) |
-| `source` | `string` | Origin service or publisher name. Must be non-empty. |
-| `payload` | `object` | Arbitrary JSON object with event data. |
-
-Deduplication key is the combination of `(topic, event_id)`.
-
----
-
-## Design Decisions
-
-**Idempotency** — `INSERT OR IGNORE` in SQLite ensures `mark_processed` is safe to call multiple times with no side effects.
-
-**Crash tolerance** — the dedup store is written to disk (`/app/data/dedup.db`) and mounted as a Docker volume. After a container restart, previously processed events are still rejected.
-
-**Ordering** — total ordering is not required for a log aggregator. Events are processed in arrival order within a single queue, which is sufficient for aggregation use cases.
-
-**Queue** — `asyncio.Queue` provides a simple, non-blocking pipeline between the HTTP layer and the consumer without needing a separate message broker.
-
-**At-least-once simulation** — the publisher intentionally resends ~20% of events to simulate real-world duplicate delivery. The dedup store absorbs all duplicates transparently.
+| 1 | `test_duplicate_event_only_processed_once` | *Event* duplikat hanya diproses satu kali |
+| 2 | `test_unique_events_all_processed` | Seluruh *event* unik berhasil diproses |
+| 3 | `test_invalid_schema_missing_event_id` | Validasi skema: `event_id` wajib ada |
+| 4 | `test_invalid_schema_empty_topic` | Validasi skema: `topic` tidak boleh whitespace |
+| 5 | `test_get_events_filtered_by_topic` | Filter `GET /events?topic=` berfungsi benar |
+| 6 | `test_stats_consistency` | `received = unique_processed + duplicate_dropped` selalu terpenuhi |
+| 7 | `test_get_events_unknown_topic_returns_404` | Topik tidak dikenal mengembalikan 404 |
+| 8 | `test_dedup_store_mark_processed_is_idempotent` | Pemanggilan ganda `mark_processed` aman |
+| 9 | `test_dedup_store_persists_across_reinit` | Dedup store tetap efektif setelah simulasi restart |
+| 10 | `test_stress_batch_5000_events` | 5.000 *event* dengan 20% duplikat selesai dalam 15 detik |
 
 ---
 
-## Assumptions
+## Keputusan Desain
 
-- All components run locally inside Docker with no external network access.
-- The `data/` directory must exist before running locally (`mkdir -p data`).
-- SQLite is sufficient for the dedup store at this scale; a production system would use Redis or a distributed KV store.
-- In-memory processed events list is reset on restart — this is expected. Only the dedup store (SQLite) persists.
+**Idempotency** — Penggunaan `INSERT OR IGNORE` pada SQLite memastikan bahwa pemanggilan `mark_processed` berkali-kali dengan pasangan `(topic, event_id)` yang sama tidak menghasilkan efek samping maupun galat.
+
+**Toleransi Crash** — Dedup store ditulis ke disk (`/app/data/dedup.db`) dan di-mount sebagai Docker volume. Setelah container di-restart, *event* yang sebelumnya telah diproses tetap ditolak sebagai duplikat.
+
+**Ordering** — *Total ordering* tidak diperlukan dalam konteks agregator log. *Event* diproses sesuai urutan kedatangan dalam antrian tunggal, yang sudah memadai untuk tujuan agregasi.
+
+**Antrian Internal** — `asyncio.Queue` menyediakan pipeline non-blocking antara lapisan HTTP dan worker *consumer* tanpa memerlukan *message broker* eksternal.
+
+**Simulasi At-Least-Once Delivery** — Publisher secara sengaja mengirim ulang sekitar 20% *event* untuk mensimulasikan pengiriman duplikat di dunia nyata. Dedup store menyerap seluruh duplikat secara transparan.
+
+---
+
+## Laporan
+
+https://drive.google.com/drive/folders/1XrmdkRbrjFngOyJx-TOZUjsP-_HsNf6-?usp=drive_link
+
+---
+
+## Referensi
+
+Tanenbaum, A. S., & Van Steen, M. (2007). *Distributed systems: Principles and paradigms* (2nd ed.). Pearson Prentice Hall.
