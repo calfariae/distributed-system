@@ -4,11 +4,15 @@
 
 Sistem agregator log terdistribusi dengan consumer idempotent dan deduplikasi kuat. Dibangun menggunakan arsitektur microservices dengan Docker Compose. Sistem ini mampu memproses ribuan event per menit dengan deteksi duplikat yang akurat.
 
+## Dokumentasi
+Youtube: https://youtu.be/F_iHY4wADug
+<br>Laporan: https://drive.google.com/drive/folders/1HMJhPDL9HSgkgEauw0dE4QXugV--CaBy?usp=drive_link
+
 ## Arsitektur
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Publisher     │────▶│   Aggregator    │────▶│   PostgreSQL    │
+│   Publisher     │───▶│   Aggregator    │───▶│   PostgreSQL    │
 │   (Python)      │     │   (FastAPI)     │     │   (Storage)     │
 └─────────────────┘     └────────┬────────┘     └─────────────────┘
                                  │
