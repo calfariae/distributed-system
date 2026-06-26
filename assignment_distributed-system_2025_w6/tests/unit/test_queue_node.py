@@ -129,23 +129,16 @@ async def test_pull_message(queue_nodes):
 async def test_message_ack(queue_nodes):
     """Test message acknowledgment"""
     async with aiohttp.ClientSession() as session:
-        # Find the node that owns "test_queue"
-        # We need to push and pull from the same node that owns the queue
-        
-        # Try all nodes as they all have the same consistent hash ring
-        node = queue_nodes[0]
-        
-        # Push a message directly - but determine which node owns it first
-        # For consistent hashing, we can test all nodes
+        # Try each node to find one that accepts the push
         msg_id = None
         target_node = None
+        queue_name = "ack_test_queue"
         
-        # Push to all nodes and see which one accepts it
         for n in queue_nodes:
             response = await session.post(
                 f"http://localhost:{n.port}/queue/push",
                 json={
-                    "queue_name": "ack_test_queue",
+                    "queue_name": queue_name,
                     "data": {"message": "Test ACK"}
                 }
             )
@@ -154,101 +147,36 @@ async def test_message_ack(queue_nodes):
             if data.get("success") and not data.get("forwarded"):
                 msg_id = data["msg_id"]
                 target_node = n
-                print(f"✓ Message pushed to node {n.node_id}: {msg_id}")
                 break
-            
-            if data.get("forwarded"):
-                target = data["target_node"]
-                host, port = target.split(":")
-                # Push to the correct node
-                response = await session.post(
-                    f"http://{host}:{port}/queue/push",
-                    json={
-                        "queue_name": "ack_test_queue",
-                        "data": {"message": "Test ACK"}
-                    }
-                )
-                data = await response.json()
-                if data.get("success"):
-                    msg_id = data["msg_id"]
-                    # Find the target node object
-                    for n in queue_nodes:
-                        if f"{n.host}:{n.port}" == target:
-                            target_node = n
-                            break
-                    print(f"✓ Message pushed to correct node: {msg_id}")
-                    break
         
-        assert msg_id is not None, "Failed to push message"
-        assert target_node is not None, "Failed to find target node"
+        assert target_node is not None, "Could not find node to push message"
+        assert msg_id is not None, "No message ID returned"
+        print(f"✓ Pushed message {msg_id} to {target_node.node_id}")
         
-        # Now pull from the SAME node
+        # Pull from the SAME node
         response = await session.post(
             f"http://localhost:{target_node.port}/queue/pull",
             json={
-                "queue_name": "ack_test_queue",
+                "queue_name": queue_name,
                 "consumer_id": "test_consumer"
             }
         )
         data = await response.json()
         
-        if data.get("message"):
-            pulled_msg_id = data["message"]["msg_id"]
-            print(f"✓ Message pulled: {pulled_msg_id}")
-            
-            # Acknowledge from the SAME node
-            ack_response = await session.post(
-                f"http://localhost:{target_node.port}/queue/ack",
-                json={"msg_id": pulled_msg_id}
-            )
-            ack_data = await ack_response.json()
-            print(f"Ack response: {ack_data}")
-            
-            assert ack_data.get("success") == True, f"Ack failed: {ack_data}"
-            print("✓ Message acknowledged successfully")
-        else:
-            print(f"No message found to acknowledge. Response: {data}")
-            # The message might have been pulled by another consumer in a previous test
-            # Let's push a new one and try again
-            response = await session.post(
-                f"http://localhost:{target_node.port}/queue/push",
-                json={
-                    "queue_name": "ack_test_queue_2",
-                    "data": {"message": "Test ACK 2"}
-                }
-            )
-            data = await response.json()
-            
-            if data.get("success"):
-                msg_id = data["msg_id"]
-                
-                # Pull it
-                response = await session.post(
-                    f"http://localhost:{target_node.port}/queue/pull",
-                    json={
-                        "queue_name": "ack_test_queue_2",
-                        "consumer_id": "test_consumer"
-                    }
-                )
-                data = await response.json()
-                
-                if data.get("message"):
-                    pulled_msg_id = data["message"]["msg_id"]
-                    
-                    # Ack it
-                    ack_response = await session.post(
-                        f"http://localhost:{target_node.port}/queue/ack",
-                        json={"msg_id": pulled_msg_id}
-                    )
-                    ack_data = await ack_response.json()
-                    print(f"Ack response (2nd attempt): {ack_data}")
-                    
-                    assert ack_data.get("success") == True, f"Ack failed: {ack_data}"
-                    print("✓ Message acknowledged successfully")
-                else:
-                    assert False, "Failed to pull message"
-            else:
-                assert False, "Failed to push second message"
+        assert data.get("message") is not None, f"No message pulled: {data}"
+        pulled_msg_id = data["message"]["msg_id"]
+        print(f"✓ Pulled message {pulled_msg_id}")
+        
+        # Acknowledge from the SAME node
+        ack_response = await session.post(
+            f"http://localhost:{target_node.port}/queue/ack",
+            json={"msg_id": pulled_msg_id}
+        )
+        ack_data = await ack_response.json()
+        print(f"Ack response: {ack_data}")
+        
+        assert ack_data.get("success") == True, f"Ack failed: {ack_data}"
+        print("✓ Message acknowledged")
 
 @pytest.mark.asyncio
 async def test_queue_stats(queue_nodes):

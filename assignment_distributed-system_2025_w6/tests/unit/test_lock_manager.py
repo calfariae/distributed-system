@@ -13,11 +13,9 @@ async def lock_manager_nodes():
     ports = [get_random_port() for _ in range(3)]
     nodes = []
     
-    # Create peer list with proper format: "host:port"
-    # Since all nodes run on localhost, just use port
     for i, port in enumerate(ports):
         node_id = f"node{i+1}"
-        # Peers are just "localhost:port" format for send_message compatibility
+        # Peers as "localhost:port" format for send_message compatibility
         peers = [f"localhost:{p}" for j, p in enumerate(ports) if j != i]
         node = DistributedLockManager(node_id, "localhost", port, peers)
         await node.start()
@@ -41,23 +39,34 @@ async def lock_manager_nodes():
 @pytest.mark.asyncio
 async def test_leader_election(lock_manager_nodes):
     """Test that a leader is elected"""
+    # Give more time for election if needed
+    for _ in range(5):
+        leaders = [node for node in lock_manager_nodes if node.state == NodeState.LEADER]
+        if len(leaders) == 1:
+            break
+        await asyncio.sleep(1)
+    
     leaders = [node for node in lock_manager_nodes if node.state == NodeState.LEADER]
     
     print(f"\nFound {len(leaders)} leader(s)")
     for node in lock_manager_nodes:
-        print(f"Node {node.node_id}: state={node.state.value}")
+        print(f"Node {node.node_id}: state={node.state.value}, leader={node.leader_id}")
     
     assert len(leaders) == 1, f"Expected 1 leader, got {len(leaders)}"
-    print(f"✓ Leader is {leaders[0].node_id}")
+    print(f"Leader is {leaders[0].node_id}")
 
 @pytest.mark.asyncio
 async def test_acquire_lock(lock_manager_nodes):
     """Test lock acquisition"""
-    # Find the leader
-    leaders = [node for node in lock_manager_nodes if node.state == NodeState.LEADER]
+    # Find the leader - wait if needed
+    leaders = []
+    for _ in range(5):
+        leaders = [node for node in lock_manager_nodes if node.state == NodeState.LEADER]
+        if leaders:
+            break
+        await asyncio.sleep(1)
     
     if not leaders:
-        # Print states for debugging
         for node in lock_manager_nodes:
             print(f"Node {node.node_id}: state={node.state.value}")
         assert False, "No leader elected"
@@ -66,7 +75,6 @@ async def test_acquire_lock(lock_manager_nodes):
     print(f"\nUsing leader: {leader.node_id}:{leader.port}")
     
     async with aiohttp.ClientSession() as session:
-        # Acquire exclusive lock
         response = await session.post(
             f"http://localhost:{leader.port}/lock/acquire",
             json={
@@ -78,13 +86,18 @@ async def test_acquire_lock(lock_manager_nodes):
         data = await response.json()
         print(f"Lock response: {data}")
         assert data.get("granted") == True, f"Lock not granted: {data}"
-        print("✓ Lock acquired successfully")
+        print("Lock acquired successfully")
 
 @pytest.mark.asyncio
 async def test_release_lock(lock_manager_nodes):
     """Test lock release"""
     # Find the leader
-    leaders = [node for node in lock_manager_nodes if node.state == NodeState.LEADER]
+    leaders = []
+    for _ in range(5):
+        leaders = [node for node in lock_manager_nodes if node.state == NodeState.LEADER]
+        if leaders:
+            break
+        await asyncio.sleep(1)
     
     if not leaders:
         for node in lock_manager_nodes:
@@ -95,7 +108,7 @@ async def test_release_lock(lock_manager_nodes):
     print(f"\nUsing leader: {leader.node_id}:{leader.port}")
     
     async with aiohttp.ClientSession() as session:
-        # First acquire lock
+        # First acquire
         response = await session.post(
             f"http://localhost:{leader.port}/lock/acquire",
             json={
@@ -105,10 +118,9 @@ async def test_release_lock(lock_manager_nodes):
             }
         )
         acquire_data = await response.json()
-        print(f"Acquire response: {acquire_data}")
-        assert acquire_data.get("granted") == True
+        assert acquire_data.get("granted") == True, f"Acquire failed: {acquire_data}"
         
-        # Then release lock
+        # Then release
         response = await session.post(
             f"http://localhost:{leader.port}/lock/release",
             json={
@@ -119,4 +131,4 @@ async def test_release_lock(lock_manager_nodes):
         data = await response.json()
         print(f"Release response: {data}")
         assert data.get("released") == True, f"Lock not released: {data}"
-        print("✓ Lock released successfully")
+        print("Lock released successfully")

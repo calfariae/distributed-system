@@ -74,16 +74,26 @@ class DistributedLockManager(BaseNode):
             try:
                 current_time = time.time()
                 
-                # Only followers and candidates start elections
-                if self.state != NodeState.LEADER:
-                    if current_time > self.election_timeout:
-                        await self.start_election()
+                # If we're leader, no need for elections
+                if self.state == NodeState.LEADER:
+                    await asyncio.sleep(0.5)
+                    continue
                 
-                await asyncio.sleep(0.1)  # Check every 100ms
+                # If we've received a heartbeat recently, reset timeout
+                if current_time - self.last_heartbeat < 2.0:
+                    self.election_timeout = current_time + random.uniform(1.5, 3.0)
+                    await asyncio.sleep(0.5)
+                    continue
+                
+                # Only start election if timeout expired
+                if current_time > self.election_timeout:
+                    await self.start_election()
+                
+                await asyncio.sleep(0.5)
             except Exception as e:
                 logger.error(f"Error in election loop: {e}")
-                await asyncio.sleep(0.5)
-    
+                await asyncio.sleep(1)
+
     async def heartbeat_loop(self):
         """Send heartbeats if leader"""
         await asyncio.sleep(1.0)  # Initial delay
@@ -92,28 +102,30 @@ class DistributedLockManager(BaseNode):
             try:
                 if self.state == NodeState.LEADER:
                     await self.send_heartbeats()
-                    await asyncio.sleep(0.5)  # Heartbeat every 500ms
+                    await asyncio.sleep(0.3)  # Heartbeat every 300ms
                 else:
+                    # Check for leader timeout
                     current_time = time.time()
-                    # If no heartbeat received for too long, become candidate
                     if current_time - self.last_heartbeat > 3.0:
-                        logger.info(f"Node {self.node_id} - No heartbeat received, starting election")
+                        logger.info(f"Node {self.node_id} - No heartbeat for {current_time - self.last_heartbeat:.1f}s")
                         self.state = NodeState.FOLLOWER
-                        self.election_timeout = time.time()
+                        self.leader_id = None
+                        self.voted_for = None
+                        self.election_timeout = time.time()  # Trigger immediate election
                     
                     await asyncio.sleep(0.5)
             except Exception as e:
                 logger.error(f"Error in heartbeat loop: {e}")
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1)
     
     async def start_election(self):
         """Start a leader election"""
         self.state = NodeState.CANDIDATE
         self.current_term += 1
         self.voted_for = self.node_id
+        self.election_timeout = time.time() + random.uniform(1.5, 3.0)
         
         logger.info(f"Node {self.node_id} starting election for term {self.current_term}")
-        print(f"Node {self.node_id} starting election for term {self.current_term}")
         
         votes = 1  # Vote for self
         
@@ -126,7 +138,6 @@ class DistributedLockManager(BaseNode):
                 
                 if response.get("vote_granted"):
                     votes += 1
-                    logger.info(f"Node {self.node_id} got vote from {peer}")
             except Exception as e:
                 logger.error(f"Error requesting vote from {peer}: {e}")
         
@@ -135,14 +146,13 @@ class DistributedLockManager(BaseNode):
         
         if votes >= majority:
             logger.info(f"Node {self.node_id} won election with {votes} votes")
-            print(f"Node {self.node_id} won election with {votes} votes")
             self.state = NodeState.LEADER
             self.leader_id = self.node_id
             await self.send_heartbeats()  # Immediately send heartbeats
         else:
             logger.info(f"Node {self.node_id} lost election with {votes} votes")
             self.state = NodeState.FOLLOWER
-            self.election_timeout = time.time() + random.uniform(1.0, 2.0)
+            self.voted_for = None
     
     async def send_heartbeats(self):
         """Send heartbeat to all peers"""
@@ -194,7 +204,8 @@ class DistributedLockManager(BaseNode):
             self.leader_id = leader_id
             self.state = NodeState.FOLLOWER
             self.last_heartbeat = time.time()
-            self.voted_for = None  # Reset vote for new term
+            self.voted_for = None
+            self.election_timeout = time.time() + random.uniform(1.5, 3.0)  # Reset timeout
         
         return web.Response(
             text=json.dumps({

@@ -1,0 +1,21 @@
+[
+  {
+    "name": "Queue Push/Pull",
+    "iterations": 100,
+    "avg_ms": 1.02,
+    "p50_ms": 0.93,
+    "throughput_ops": 984.3
+  },
+  {
+    "name": "Cache Performance",
+    "hit_avg_ms": 0.37,
+    "miss_avg_ms": 1.19,
+    "hit_rate": "100/150"
+  },
+  {
+    "name": "Single vs Distributed",
+    "single_avg_ms": 1.53,
+    "distributed_avg_ms": 2.25,
+    "overhead_percent": 47.3
+  }
+]
