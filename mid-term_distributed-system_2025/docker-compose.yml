@@ -4,7 +4,7 @@ services:
   aggregator:
     build:
       context: .
-      dockerfile: Dockerfile.aggregator
+      dockerfile: Dockerfile
     container_name: uts-aggregator
     ports:
       - "8080:8080"

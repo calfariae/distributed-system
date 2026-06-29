@@ -253,9 +253,13 @@ Cakupan pengujian meliputi:
 
 ---
 
-## Laporan
+## Dokumentasi
 
-https://drive.google.com/drive/folders/1XrmdkRbrjFngOyJx-TOZUjsP-_HsNf6-?usp=drive_link
+Laporan:
+<br>https://drive.google.com/drive/folders/1XrmdkRbrjFngOyJx-TOZUjsP-_HsNf6-?usp=drive_link
+
+Video Demo:
+<br>https://youtu.be/lnygm35w7mE
 
 ---
 
